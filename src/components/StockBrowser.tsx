@@ -3,7 +3,7 @@ import type { StockBenefit, StockCategory, StockSource } from '../types/stock';
 import { stocksData } from '../data/stocks';
 import StockCard from './StockCard';
 
-type SortKey = 'effectiveYield' | 'dividendYield' | 'benefitValue' | 'stockPrice' | 'requiredInvestment' | 'valueScore';
+type SortKey = 'effectiveYield' | 'virtualPlus100' | 'dividendYield' | 'benefitValue' | 'stockPrice' | 'requiredInvestment' | 'valueScore';
 
 interface StockBrowserProps {
   onAddToPortfolio: (stock: StockBenefit) => void;
@@ -45,6 +45,7 @@ const investmentRanges = [
 
 const sortOptions: { key: SortKey; label: string }[] = [
   { key: 'effectiveYield', label: '✨ 実質利回り順' },
+  { key: 'virtualPlus100', label: '💴 年間仮想プラス順（100株）' },
   { key: 'dividendYield', label: '配当利回り順' },
   { key: 'benefitValue', label: '優待価値順' },
   { key: 'stockPrice', label: '株価順（低い）' },
@@ -56,6 +57,11 @@ function computeEffectiveYield(s: StockBenefit): number {
   const investment = s.stockPrice * s.minShares;
   if (investment === 0) return 0;
   return (s.dividendPerShare * s.minShares + s.benefitValue) / investment * 100;
+}
+
+function computeVirtualPlus100(s: StockBenefit): number {
+  const benefit100 = s.minShares <= 100 ? Math.round(s.benefitValue * (100 / s.minShares)) : 0;
+  return s.dividendPerShare * 100 + benefit100;
 }
 
 export default function StockBrowser({
@@ -114,6 +120,8 @@ export default function StockBrowser({
 
     if (sortKey === 'effectiveYield' || sortKey === 'valueScore') {
       data.sort((a, b) => computeEffectiveYield(b) - computeEffectiveYield(a));
+    } else if (sortKey === 'virtualPlus100') {
+      data.sort((a, b) => computeVirtualPlus100(b) - computeVirtualPlus100(a));
     } else {
       data.sort((a, b) => b[sortKey] - a[sortKey]);
     }
