@@ -6,7 +6,7 @@ interface HeaderProps {
 
 const tabs = [
   { id: 'myportfolio', label: '🛒 マイポートフォリオ' },
-  { id: 'stocks', label: '🎁 株主優待' },
+  { id: 'stocks', label: '📋 銘柄' },
   { id: 'portfolio', label: '📊 配分プラン' },
   { id: 'planner', label: '📅 投資プラン' },
   { id: 'nisa', label: '💡 NISA入門' },

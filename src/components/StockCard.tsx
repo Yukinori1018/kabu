@@ -138,6 +138,38 @@ export default function StockCard({ stock, inPortfolio, onAdd, onRemove }: Stock
           </div>
         </div>
 
+        {/* 仮想プラス金額（100株あたり） */}
+        {(() => {
+          const div100 = stock.dividendPerShare * 100;
+          const benefit100 = stock.minShares <= 100
+            ? Math.round(stock.benefitValue * (100 / stock.minShares))
+            : 0;
+          const total = div100 + benefit100;
+          const investAt100 = stock.stockPrice * 100;
+          const effectiveYield100 = investAt100 > 0 ? (total / investAt100) * 100 : 0;
+          return (
+            <div className="bg-emerald-50 rounded-xl px-3 py-2 border border-emerald-100">
+              <p className="text-xs text-emerald-600 font-medium mb-1">✨ 年間仮想プラス（100株換算）</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-base font-bold text-emerald-700">{formatYen(total)}</p>
+                  <p className="text-[10px] text-emerald-500 mt-0.5">
+                    配当 {formatYen(div100)}
+                    {benefit100 > 0 && <> + 優待 {formatYen(benefit100)}</>}
+                    {stock.minShares > 100 && <span className="text-gray-400">（優待は{stock.minShares.toLocaleString()}株必要）</span>}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] text-emerald-500">実質利回り</p>
+                  <p className={`text-sm font-bold ${effectiveYield100 >= 5 ? 'text-green-600' : effectiveYield100 >= 3 ? 'text-orange-500' : 'text-gray-500'}`}>
+                    {effectiveYield100.toFixed(2)}%
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Value score + description */}
         <div className="flex items-center justify-between">
           <div>

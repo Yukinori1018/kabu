@@ -124,9 +124,9 @@ export default function StockBrowser({
         <div className="flex items-center gap-3">
           <span className="text-4xl">🎁</span>
           <div>
-            <h2 className="text-xl font-bold">株主優待ブラウザー</h2>
+            <h2 className="text-xl font-bold">銘柄ブラウザー</h2>
             <p className="text-orange-100 text-sm">
-              桐谷さんスタイルで優待株を楽しく探そう！全{stocksData.length}銘柄掲載
+              優待株・高配当株を楽しく探そう！全{stocksData.length}銘柄掲載
             </p>
             {pricesLastUpdated && (
               <p className="text-orange-200 text-xs mt-0.5">
