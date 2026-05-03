@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import type { PortfolioItem, StockSource } from '../types/stock';
+import AIEvaluation from './AIEvaluation';
 
 interface PortfolioBuilderProps {
   items: PortfolioItem[];
@@ -7,7 +9,24 @@ interface PortfolioBuilderProps {
   onGoToStocks: () => void;
 }
 
-const BUDGET = 3500000;
+const DEFAULT_INITIAL_BUDGET = 3_500_000;
+const DEFAULT_MONTHLY_BUDGET = 100_000;
+
+const LS_INITIAL_BUDGET = 'kabu_initial_budget';
+const LS_MONTHLY_BUDGET = 'kabu_monthly_budget';
+
+function loadBudget(key: string, fallback: number): number {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw !== null) {
+      const n = parseInt(raw, 10);
+      if (!isNaN(n) && n > 0) return n;
+    }
+  } catch {
+    // ignore
+  }
+  return fallback;
+}
 
 const sourceConfig: Record<StockSource, { className: string; label: string }> = {
   kiriya: { className: 'bg-pink-100 text-pink-700', label: '👴 桐谷さん' },
@@ -25,6 +44,39 @@ export default function PortfolioBuilder({
   onUpdateLots,
   onGoToStocks,
 }: PortfolioBuilderProps) {
+  const [initialBudget, setInitialBudget] = useState<number>(() =>
+    loadBudget(LS_INITIAL_BUDGET, DEFAULT_INITIAL_BUDGET)
+  );
+  const [monthlyBudget, setMonthlyBudget] = useState<number>(() =>
+    loadBudget(LS_MONTHLY_BUDGET, DEFAULT_MONTHLY_BUDGET)
+  );
+  const [budgetOpen, setBudgetOpen] = useState(false);
+
+  const [initialBudgetInput, setInitialBudgetInput] = useState<string>(
+    () => loadBudget(LS_INITIAL_BUDGET, DEFAULT_INITIAL_BUDGET).toString()
+  );
+  const [monthlyBudgetInput, setMonthlyBudgetInput] = useState<string>(
+    () => loadBudget(LS_MONTHLY_BUDGET, DEFAULT_MONTHLY_BUDGET).toString()
+  );
+
+  function handleInitialBudgetChange(value: string) {
+    setInitialBudgetInput(value);
+    const n = parseInt(value, 10);
+    if (!isNaN(n) && n > 0) {
+      setInitialBudget(n);
+      try { localStorage.setItem(LS_INITIAL_BUDGET, n.toString()); } catch { /* ignore */ }
+    }
+  }
+
+  function handleMonthlyBudgetChange(value: string) {
+    setMonthlyBudgetInput(value);
+    const n = parseInt(value, 10);
+    if (!isNaN(n) && n > 0) {
+      setMonthlyBudget(n);
+      try { localStorage.setItem(LS_MONTHLY_BUDGET, n.toString()); } catch { /* ignore */ }
+    }
+  }
+
   // Empty state
   if (items.length === 0) {
     return (
@@ -77,8 +129,8 @@ export default function PortfolioBuilder({
   const weightedYield = totalInvestment > 0 ? (totalDividend / totalInvestment) * 100 : 0;
   const effectiveYield =
     totalInvestment > 0 ? ((totalDividend + totalBenefit) / totalInvestment) * 100 : 0;
-  const budgetUsedPct = (totalInvestment / BUDGET) * 100;
-  const remainingBudget = BUDGET - totalInvestment;
+  const budgetUsedPct = (totalInvestment / initialBudget) * 100;
+  const remainingBudget = initialBudget - totalInvestment;
 
   const yieldColor =
     effectiveYield > 5
@@ -87,7 +139,7 @@ export default function PortfolioBuilder({
       ? 'text-orange-600'
       : 'text-gray-500';
 
-  const overBudget = totalInvestment > BUDGET;
+  const overBudget = totalInvestment > initialBudget;
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 space-y-5">
@@ -110,6 +162,53 @@ export default function PortfolioBuilder({
             + 銘柄追加
           </button>
         </div>
+      </div>
+
+      {/* Budget settings collapsible */}
+      <div className="bg-white rounded-2xl shadow-sm border border-warm-100 overflow-hidden">
+        <button
+          onClick={() => setBudgetOpen((v) => !v)}
+          className="w-full flex items-center justify-between px-4 py-3 text-sm font-bold text-warm-700 hover:bg-warm-50 transition-colors"
+        >
+          <span>⚙️ 予算設定</span>
+          <span className="text-gray-400 text-xs">{budgetOpen ? '▲ 閉じる' : '▼ 開く'}</span>
+        </button>
+        {budgetOpen && (
+          <div className="px-4 pb-4 grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-warm-100 pt-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                初期投資予算（円）
+              </label>
+              <input
+                type="number"
+                min={1}
+                step={100000}
+                value={initialBudgetInput}
+                onChange={(e) => handleInitialBudgetChange(e.target.value)}
+                className="w-full border border-warm-200 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-orange-300"
+              />
+              <p className="text-[10px] text-gray-400 mt-1">
+                現在: {formatYen(initialBudget)}
+              </p>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                月間積立予算（円）
+              </label>
+              <input
+                type="number"
+                min={1}
+                step={10000}
+                value={monthlyBudgetInput}
+                onChange={(e) => handleMonthlyBudgetChange(e.target.value)}
+                className="w-full border border-warm-200 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-orange-300"
+              />
+              <p className="text-[10px] text-gray-400 mt-1">
+                現在: {formatYen(monthlyBudget)}／月
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Sticky summary panel */}
@@ -147,7 +246,7 @@ export default function PortfolioBuilder({
         <div className="space-y-1">
           <div className="flex items-center justify-between text-xs">
             <span className="text-gray-600">
-              予算{(BUDGET / 10000).toLocaleString()}万円のうち{' '}
+              予算{(initialBudget / 10000).toLocaleString()}万円のうち{' '}
               <span className={`font-bold ${overBudget ? 'text-red-600' : 'text-warm-700'}`}>
                 {budgetUsedPct.toFixed(1)}%
               </span>{' '}
@@ -171,6 +270,12 @@ export default function PortfolioBuilder({
               style={{ width: `${Math.min(budgetUsedPct, 100)}%` }}
             />
           </div>
+        </div>
+
+        {/* Monthly budget info */}
+        <div className="mt-2 text-xs text-gray-500">
+          月間積立予算: <span className="font-bold text-orange-600">{formatYen(monthlyBudget)}</span>
+          ／月　→　年間積立: <span className="font-bold text-orange-600">{formatYen(monthlyBudget * 12)}</span>
         </div>
       </div>
 
@@ -264,6 +369,9 @@ export default function PortfolioBuilder({
           );
         })}
       </div>
+
+      {/* AI Evaluation */}
+      <AIEvaluation items={items} totalInvestment={totalInvestment} />
     </div>
   );
 }
