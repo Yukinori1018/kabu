@@ -1,13 +1,37 @@
 import { useState, useMemo } from 'react';
-import type { StockBenefit, StockCategory } from '../types/stock';
+import type { StockBenefit, StockCategory, StockSource } from '../types/stock';
 import { stocksData } from '../data/stocks';
 import StockCard from './StockCard';
 
 type SortKey = 'dividendYield' | 'benefitValue' | 'stockPrice' | 'requiredInvestment' | 'valueScore';
 
-const allCategories: StockCategory[] = ['食品・飲食', '小売', 'エンタメ', '医薬・ヘルスケア', '金融', '航空・旅行'];
+interface StockBrowserProps {
+  onAddToPortfolio: (stock: StockBenefit) => void;
+  onRemoveFromPortfolio: (code: string) => void;
+  isInPortfolio: (code: string) => boolean;
+}
+
+const allCategories: StockCategory[] = [
+  '食品・飲食',
+  '小売',
+  'エンタメ',
+  '医薬・ヘルスケア',
+  '金融',
+  '航空・旅行',
+  '通信・IT',
+  '商社・エネルギー',
+  '不動産',
+  'その他',
+];
 const allMonths = Array.from({ length: 12 }, (_, i) => i + 1);
 const monthNames = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+
+const sourceFilters: { key: StockSource | 'all'; label: string }[] = [
+  { key: 'all', label: 'すべて' },
+  { key: 'kiriya', label: '👴 桐谷さん' },
+  { key: 'youtuber', label: '📺 YouTuber' },
+  { key: 'research', label: '🔍 独自リサーチ' },
+];
 
 const investmentRanges = [
   { label: 'すべて', min: 0, max: Infinity },
@@ -25,16 +49,24 @@ const sortOptions: { key: SortKey; label: string }[] = [
   { key: 'valueScore', label: 'お得度順' },
 ];
 
-export default function StockBrowser() {
+export default function StockBrowser({
+  onAddToPortfolio,
+  onRemoveFromPortfolio,
+  isInPortfolio,
+}: StockBrowserProps) {
   const [selectedCategory, setSelectedCategory] = useState<StockCategory | 'すべて'>('すべて');
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
   const [selectedRangeIndex, setSelectedRangeIndex] = useState(0);
   const [sortKey, setSortKey] = useState<SortKey>('valueScore');
   const [searchText, setSearchText] = useState('');
+  const [selectedSource, setSelectedSource] = useState<StockSource | 'all'>('all');
 
   const filtered = useMemo(() => {
     let data: StockBenefit[] = [...stocksData];
 
+    if (selectedSource !== 'all') {
+      data = data.filter((s) => s.source === selectedSource);
+    }
     if (selectedCategory !== 'すべて') {
       data = data.filter((s) => s.category === selectedCategory);
     }
@@ -57,7 +89,14 @@ export default function StockBrowser() {
     data.sort((a, b) => b[sortKey] - a[sortKey]);
 
     return data;
-  }, [selectedCategory, selectedMonth, selectedRangeIndex, sortKey, searchText]);
+  }, [selectedCategory, selectedMonth, selectedRangeIndex, sortKey, searchText, selectedSource]);
+
+  const hasActiveFilters =
+    selectedCategory !== 'すべて' ||
+    selectedMonth !== null ||
+    selectedRangeIndex !== 0 ||
+    searchText !== '' ||
+    selectedSource !== 'all';
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 space-y-5">
@@ -89,6 +128,26 @@ export default function StockBrowser() {
       {/* Filters */}
       <div className="bg-white rounded-2xl p-4 shadow-sm border border-warm-100 space-y-4">
         <h3 className="font-bold text-gray-700 text-sm">🔽 絞り込み・並び替え</h3>
+
+        {/* Source filter */}
+        <div>
+          <p className="text-xs text-gray-500 mb-2">情報ソース</p>
+          <div className="flex flex-wrap gap-2">
+            {sourceFilters.map((s) => (
+              <button
+                key={s.key}
+                onClick={() => setSelectedSource(s.key)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  selectedSource === s.key
+                    ? 'bg-warm-500 text-white shadow-sm'
+                    : 'bg-gray-100 text-gray-600 hover:bg-warm-100 hover:text-warm-700'
+                }`}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </div>
 
         {/* Category filter */}
         <div>
@@ -186,15 +245,17 @@ export default function StockBrowser() {
       {/* Results count */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-gray-600">
-          <span className="font-bold text-warm-700">{filtered.length}</span> 銘柄が見つかりました
+          <span className="font-bold text-warm-700">{filtered.length}</span> /{' '}
+          {stocksData.length} 銘柄が見つかりました
         </p>
-        {(selectedCategory !== 'すべて' || selectedMonth !== null || selectedRangeIndex !== 0 || searchText) && (
+        {hasActiveFilters && (
           <button
             onClick={() => {
               setSelectedCategory('すべて');
               setSelectedMonth(null);
               setSelectedRangeIndex(0);
               setSearchText('');
+              setSelectedSource('all');
             }}
             className="text-xs text-warm-600 hover:text-warm-800 underline"
           >
@@ -207,7 +268,13 @@ export default function StockBrowser() {
       {filtered.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((stock) => (
-            <StockCard key={stock.code} stock={stock} />
+            <StockCard
+              key={stock.code}
+              stock={stock}
+              inPortfolio={isInPortfolio(stock.code)}
+              onAdd={onAddToPortfolio}
+              onRemove={onRemoveFromPortfolio}
+            />
           ))}
         </div>
       ) : (

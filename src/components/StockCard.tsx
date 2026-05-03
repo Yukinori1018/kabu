@@ -1,7 +1,10 @@
-import type { StockBenefit } from '../types/stock';
+import type { StockBenefit, StockSource } from '../types/stock';
 
 interface StockCardProps {
   stock: StockBenefit;
+  inPortfolio: boolean;
+  onAdd: (stock: StockBenefit) => void;
+  onRemove: (code: string) => void;
 }
 
 function formatYen(amount: number): string {
@@ -49,15 +52,31 @@ const categoryColors: Record<string, string> = {
   '医薬・ヘルスケア': 'bg-teal-100 text-teal-700',
   '金融': 'bg-indigo-100 text-indigo-700',
   '航空・旅行': 'bg-sky-100 text-sky-700',
+  '通信・IT': 'bg-cyan-100 text-cyan-700',
+  '商社・エネルギー': 'bg-amber-100 text-amber-700',
+  '不動産': 'bg-emerald-100 text-emerald-700',
+  'その他': 'bg-gray-100 text-gray-700',
+};
+
+const sourceConfig: Record<StockSource, { className: string; label: string }> = {
+  kiriya: { className: 'bg-pink-100 text-pink-700', label: '👴 桐谷さんおすすめ' },
+  youtuber: { className: 'bg-purple-100 text-purple-700', label: '📺 人気YouTuber注目' },
+  research: { className: 'bg-teal-100 text-teal-700', label: '🔍 独自リサーチ' },
 };
 
 const monthNames = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
 
-export default function StockCard({ stock }: StockCardProps) {
+export default function StockCard({ stock, inPortfolio, onAdd, onRemove }: StockCardProps) {
   const categoryColor = categoryColors[stock.category] || 'bg-gray-100 text-gray-700';
+  const source = sourceConfig[stock.source];
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-warm-100 overflow-hidden hover:shadow-md transition-shadow">
+    <div className="bg-white rounded-2xl shadow-sm border border-warm-100 overflow-hidden hover:shadow-md transition-shadow flex flex-col">
+      {/* Source badge */}
+      <div className={`px-4 py-1.5 text-xs font-bold ${source.className}`}>
+        {source.label}
+      </div>
+
       {/* Card Header */}
       <div className="bg-gradient-to-r from-warm-50 to-orange-50 px-4 pt-4 pb-3">
         <div className="flex items-start justify-between gap-2">
@@ -77,7 +96,7 @@ export default function StockCard({ stock }: StockCardProps) {
       </div>
 
       {/* Card Body */}
-      <div className="px-4 py-3 space-y-3">
+      <div className="px-4 py-3 space-y-3 flex-1">
         {/* Benefit highlight */}
         <div className="bg-amber-50 rounded-xl px-3 py-2 border border-amber-100">
           <p className="text-xs text-amber-600 font-medium mb-0.5">🎁 優待内容</p>
@@ -127,6 +146,25 @@ export default function StockCard({ stock }: StockCardProps) {
           </div>
           <p className="text-xs text-gray-500 text-right max-w-[140px] leading-relaxed">{stock.description}</p>
         </div>
+      </div>
+
+      {/* Add/Remove button */}
+      <div className="px-4 pb-4 pt-1">
+        {inPortfolio ? (
+          <button
+            onClick={() => onRemove(stock.code)}
+            className="w-full py-2.5 rounded-xl text-sm font-bold bg-green-500 hover:bg-green-600 text-white shadow-sm transition-colors"
+          >
+            ✓ ポートフォリオ追加済み
+          </button>
+        ) : (
+          <button
+            onClick={() => onAdd(stock)}
+            className="w-full py-2.5 rounded-xl text-sm font-bold bg-orange-500 hover:bg-orange-600 text-white shadow-sm transition-colors"
+          >
+            + ポートフォリオに追加
+          </button>
+        )}
       </div>
     </div>
   );
