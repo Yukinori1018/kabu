@@ -7,25 +7,10 @@ interface PortfolioBuilderProps {
   onRemove: (code: string) => void;
   onUpdateLots: (code: string, lots: number) => void;
   onGoToStocks: () => void;
-}
-
-const DEFAULT_INITIAL_BUDGET = 3_500_000;
-const DEFAULT_MONTHLY_BUDGET = 100_000;
-
-const LS_INITIAL_BUDGET = 'kabu_initial_budget';
-const LS_MONTHLY_BUDGET = 'kabu_monthly_budget';
-
-function loadBudget(key: string, fallback: number): number {
-  try {
-    const raw = localStorage.getItem(key);
-    if (raw !== null) {
-      const n = parseInt(raw, 10);
-      if (!isNaN(n) && n > 0) return n;
-    }
-  } catch {
-    // ignore
-  }
-  return fallback;
+  initialBudget: number;
+  monthlyBudget: number;
+  onChangeInitialBudget: (v: number) => void;
+  onChangeMonthlyBudget: (v: number) => void;
 }
 
 const sourceConfig: Record<StockSource, { className: string; label: string }> = {
@@ -43,38 +28,25 @@ export default function PortfolioBuilder({
   onRemove,
   onUpdateLots,
   onGoToStocks,
+  initialBudget,
+  monthlyBudget,
+  onChangeInitialBudget,
+  onChangeMonthlyBudget,
 }: PortfolioBuilderProps) {
-  const [initialBudget, setInitialBudget] = useState<number>(() =>
-    loadBudget(LS_INITIAL_BUDGET, DEFAULT_INITIAL_BUDGET)
-  );
-  const [monthlyBudget, setMonthlyBudget] = useState<number>(() =>
-    loadBudget(LS_MONTHLY_BUDGET, DEFAULT_MONTHLY_BUDGET)
-  );
   const [budgetOpen, setBudgetOpen] = useState(false);
-
-  const [initialBudgetInput, setInitialBudgetInput] = useState<string>(
-    () => loadBudget(LS_INITIAL_BUDGET, DEFAULT_INITIAL_BUDGET).toString()
-  );
-  const [monthlyBudgetInput, setMonthlyBudgetInput] = useState<string>(
-    () => loadBudget(LS_MONTHLY_BUDGET, DEFAULT_MONTHLY_BUDGET).toString()
-  );
+  const [initialBudgetInput, setInitialBudgetInput] = useState<string>(String(initialBudget));
+  const [monthlyBudgetInput, setMonthlyBudgetInput] = useState<string>(String(monthlyBudget));
 
   function handleInitialBudgetChange(value: string) {
     setInitialBudgetInput(value);
     const n = parseInt(value, 10);
-    if (!isNaN(n) && n > 0) {
-      setInitialBudget(n);
-      try { localStorage.setItem(LS_INITIAL_BUDGET, n.toString()); } catch { /* ignore */ }
-    }
+    if (!isNaN(n) && n > 0) onChangeInitialBudget(n);
   }
 
   function handleMonthlyBudgetChange(value: string) {
     setMonthlyBudgetInput(value);
     const n = parseInt(value, 10);
-    if (!isNaN(n) && n > 0) {
-      setMonthlyBudget(n);
-      try { localStorage.setItem(LS_MONTHLY_BUDGET, n.toString()); } catch { /* ignore */ }
-    }
+    if (!isNaN(n) && n > 0) onChangeMonthlyBudget(n);
   }
 
   // Empty state

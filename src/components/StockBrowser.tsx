@@ -9,6 +9,8 @@ interface StockBrowserProps {
   onAddToPortfolio: (stock: StockBenefit) => void;
   onRemoveFromPortfolio: (code: string) => void;
   isInPortfolio: (code: string) => boolean;
+  priceMap?: Record<string, number>;
+  pricesLastUpdated?: string;
 }
 
 const allCategories: StockCategory[] = [
@@ -53,6 +55,8 @@ export default function StockBrowser({
   onAddToPortfolio,
   onRemoveFromPortfolio,
   isInPortfolio,
+  priceMap = {},
+  pricesLastUpdated = '',
 }: StockBrowserProps) {
   const [selectedCategory, setSelectedCategory] = useState<StockCategory | 'すべて'>('すべて');
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
@@ -61,8 +65,23 @@ export default function StockBrowser({
   const [searchText, setSearchText] = useState('');
   const [selectedSource, setSelectedSource] = useState<StockSource | 'all'>('all');
 
+  // 動的価格を静的データにマージ
+  const mergedStocks = useMemo<StockBenefit[]>(() => {
+    return stocksData.map(s => {
+      const livePrice = priceMap[s.code];
+      if (!livePrice) return s;
+      const price = livePrice;
+      return {
+        ...s,
+        stockPrice: price,
+        dividendYield: Math.round(s.dividendPerShare / price * 1000) / 10,
+        requiredInvestment: price * s.minShares,
+      };
+    });
+  }, [priceMap]);
+
   const filtered = useMemo(() => {
-    let data: StockBenefit[] = [...stocksData];
+    let data: StockBenefit[] = [...mergedStocks];
 
     if (selectedSource !== 'all') {
       data = data.filter((s) => s.source === selectedSource);
@@ -89,7 +108,7 @@ export default function StockBrowser({
     data.sort((a, b) => b[sortKey] - a[sortKey]);
 
     return data;
-  }, [selectedCategory, selectedMonth, selectedRangeIndex, sortKey, searchText, selectedSource]);
+  }, [mergedStocks, selectedCategory, selectedMonth, selectedRangeIndex, sortKey, searchText, selectedSource]);
 
   const hasActiveFilters =
     selectedCategory !== 'すべて' ||
@@ -109,6 +128,11 @@ export default function StockBrowser({
             <p className="text-orange-100 text-sm">
               桐谷さんスタイルで優待株を楽しく探そう！全{stocksData.length}銘柄掲載
             </p>
+            {pricesLastUpdated && (
+              <p className="text-orange-200 text-xs mt-0.5">
+                📅 株価更新日: {pricesLastUpdated}（毎週月曜自動更新）
+              </p>
+            )}
           </div>
         </div>
       </div>

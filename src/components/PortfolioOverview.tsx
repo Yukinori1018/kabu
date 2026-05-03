@@ -2,9 +2,13 @@ function formatYen(amount: number): string {
   return amount.toLocaleString('ja-JP') + '円';
 }
 
-export default function PortfolioOverview() {
-  const totalSavings = 3500000;
-  const monthlyBudget = 100000;
+interface PortfolioOverviewProps {
+  initialBudget?: number;
+  monthlyBudget?: number;
+}
+
+export default function PortfolioOverview({ initialBudget = 3_500_000, monthlyBudget = 100_000 }: PortfolioOverviewProps) {
+  const totalSavings = initialBudget;
 
   // Recommended allocation
   const indexFundAmount = Math.round(totalSavings * 0.6);

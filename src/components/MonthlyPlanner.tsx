@@ -2,46 +2,49 @@ function formatYen(amount: number): string {
   return amount.toLocaleString('ja-JP') + '円';
 }
 
-const monthlyBudget = 100000;
-
-const planItems = [
-  {
-    label: 'つみたてNISA（インデックスファンド）',
-    amount: 50000,
-    icon: '📈',
-    color: 'blue',
-    detail: 'eMAXIS Slim 全世界株式（オルカン）を毎月自動積立',
-    reason: '長期的な資産形成の柱。手数料が安く、世界の株式市場全体に分散投資。',
-    subItems: [
-      { name: 'eMAXIS Slim 全世界株式', amount: 30000, note: 'オルカン' },
-      { name: 'eMAXIS Slim 米国株式 S&P500', amount: 20000, note: 'S&P500' },
-    ],
-  },
-  {
-    label: '個別株・優待株',
-    amount: 30000,
-    icon: '🎁',
-    color: 'orange',
-    detail: '気に入った株主優待株を毎月少しずつ購入',
-    reason: '楽しみながら投資する部分。100株単位で購入し、優待をもらう。',
-    subItems: [
-      { name: '優待株A（例：ワタミ）', amount: 15000, note: '月〜2ヶ月に1銘柄' },
-      { name: '優待株B（例：吉野家）', amount: 15000, note: '積み立て中' },
-    ],
-  },
-  {
-    label: '現金バッファー（緊急予備費）',
-    amount: 20000,
-    icon: '🏦',
-    color: 'green',
-    detail: '高金利普通預金または短期国債MMFに積立',
-    reason: '急な出費に備える安心の緊急予備費。生活費3〜6ヶ月分を目標に。',
-    subItems: [
-      { name: '高金利普通預金', amount: 10000, note: 'SBI・楽天など' },
-      { name: '短期国債・MRF', amount: 10000, note: '元本確保' },
-    ],
-  },
-];
+function buildPlanItems(budget: number) {
+  const nisa = Math.round(budget * 0.5);
+  const stocks = Math.round(budget * 0.3);
+  const cash = budget - nisa - stocks;
+  return [
+    {
+      label: 'つみたてNISA（インデックスファンド）',
+      amount: nisa,
+      icon: '📈',
+      color: 'blue',
+      detail: 'eMAXIS Slim 全世界株式（オルカン）を毎月自動積立',
+      reason: '長期的な資産形成の柱。手数料が安く、世界の株式市場全体に分散投資。',
+      subItems: [
+        { name: 'eMAXIS Slim 全世界株式', amount: Math.round(nisa * 0.6), note: 'オルカン' },
+        { name: 'eMAXIS Slim 米国株式 S&P500', amount: nisa - Math.round(nisa * 0.6), note: 'S&P500' },
+      ],
+    },
+    {
+      label: '個別株・優待株',
+      amount: stocks,
+      icon: '🎁',
+      color: 'orange',
+      detail: '気に入った株主優待株を毎月少しずつ購入',
+      reason: '楽しみながら投資する部分。100株単位で購入し、優待をもらう。',
+      subItems: [
+        { name: '優待株A（例：ワタミ）', amount: Math.round(stocks / 2), note: '月〜2ヶ月に1銘柄' },
+        { name: '優待株B（例：吉野家）', amount: stocks - Math.round(stocks / 2), note: '積み立て中' },
+      ],
+    },
+    {
+      label: '現金バッファー（緊急予備費）',
+      amount: cash,
+      icon: '🏦',
+      color: 'green',
+      detail: '高金利普通預金または短期国債MMFに積立',
+      reason: '急な出費に備える安心の緊急予備費。生活費3〜6ヶ月分を目標に。',
+      subItems: [
+        { name: '高金利普通預金', amount: Math.round(cash / 2), note: 'SBI・楽天など' },
+        { name: '短期国債・MRF', amount: cash - Math.round(cash / 2), note: '元本確保' },
+      ],
+    },
+  ];
+}
 
 const colorMap: Record<string, { bg: string; light: string; text: string; border: string; bar: string }> = {
   blue: {
@@ -67,16 +70,18 @@ const colorMap: Record<string, { bg: string; light: string; text: string; border
   },
 };
 
-// 12 month projection
-function getProjection() {
+function getProjection(budget: number) {
+  const nisa = Math.round(budget * 0.5);
+  const stocks = Math.round(budget * 0.3);
+  const cash = budget - nisa - stocks;
   const rows = [];
   let indexTotal = 0;
   let stocksTotal = 0;
   let cashTotal = 0;
   for (let m = 1; m <= 12; m++) {
-    indexTotal += 50000;
-    stocksTotal += 30000;
-    cashTotal += 20000;
+    indexTotal += nisa;
+    stocksTotal += stocks;
+    cashTotal += cash;
     rows.push({
       month: m,
       index: indexTotal,
@@ -88,8 +93,13 @@ function getProjection() {
   return rows;
 }
 
-export default function MonthlyPlanner() {
-  const projection = getProjection();
+interface MonthlyPlannerProps {
+  monthlyBudget?: number;
+}
+
+export default function MonthlyPlanner({ monthlyBudget = 100_000 }: MonthlyPlannerProps) {
+  const planItems = buildPlanItems(monthlyBudget);
+  const projection = getProjection(monthlyBudget);
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
@@ -99,7 +109,7 @@ export default function MonthlyPlanner() {
           <span className="text-4xl">📅</span>
           <div>
             <h2 className="text-xl font-bold">毎月の投資プラン</h2>
-            <p className="text-blue-100 text-sm">月10万円を効率よく3つのバケツに分けて運用</p>
+            <p className="text-blue-100 text-sm">月{formatYen(monthlyBudget)}を効率よく3つのバケツに分けて運用</p>
           </div>
         </div>
       </div>

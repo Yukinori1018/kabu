@@ -87,6 +87,7 @@ export default function NisaGuide() {
           <div>
             <h2 className="text-xl font-bold">NISA入門ガイド</h2>
             <p className="text-purple-100 text-sm">投資初心者のための「税金ゼロ」投資制度をわかりやすく解説</p>
+            <p className="text-purple-200 text-xs mt-0.5">📅 内容確認日: 2025年5月 ／ 最新情報は <span className="underline">nisa.or.jp</span> でご確認ください</p>
           </div>
         </div>
       </div>
