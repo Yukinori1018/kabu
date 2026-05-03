@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import type { PortfolioItem, StockSource } from '../types/stock';
 import AIEvaluation from './AIEvaluation';
+import { encodePortfolioToUrl } from '../App';
+import { stocksData } from '../data/stocks';
 
 interface PortfolioBuilderProps {
   items: PortfolioItem[];
@@ -11,6 +13,7 @@ interface PortfolioBuilderProps {
   monthlyBudget: number;
   onChangeInitialBudget: (v: number) => void;
   onChangeMonthlyBudget: (v: number) => void;
+  onImport: (items: PortfolioItem[]) => void;
 }
 
 const sourceConfig: Record<StockSource, { className: string; label: string }> = {
@@ -32,10 +35,61 @@ export default function PortfolioBuilder({
   monthlyBudget,
   onChangeInitialBudget,
   onChangeMonthlyBudget,
+  onImport,
 }: PortfolioBuilderProps) {
   const [budgetOpen, setBudgetOpen] = useState(false);
   const [initialBudgetInput, setInitialBudgetInput] = useState<string>(String(initialBudget));
   const [monthlyBudgetInput, setMonthlyBudgetInput] = useState<string>(String(monthlyBudget));
+  const [shareOpen, setShareOpen] = useState(false);
+  const [copyDone, setCopyDone] = useState(false);
+  const [importError, setImportError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleCopyLink() {
+    const url = encodePortfolioToUrl(items);
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopyDone(true);
+      setTimeout(() => setCopyDone(false), 2500);
+    } catch {
+      prompt('以下のURLをコピーしてください', url);
+    }
+  }
+
+  function handleExportJson() {
+    const data = items.map(i => ({ code: i.stock.code, lots: i.lots }));
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'my-portfolio.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function handleImportJson(e: React.ChangeEvent<HTMLInputElement>) {
+    setImportError('');
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const parsed = JSON.parse(ev.target?.result as string) as { code: string; lots: number }[];
+        if (!Array.isArray(parsed)) throw new Error();
+        const imported: PortfolioItem[] = parsed.flatMap(({ code, lots }) => {
+          const stock = stocksData.find(s => s.code === code);
+          return stock ? [{ stock, lots: Math.max(1, lots) }] : [];
+        });
+        if (imported.length === 0) { setImportError('有効な銘柄が見つかりませんでした'); return; }
+        onImport(imported);
+        setShareOpen(false);
+      } catch {
+        setImportError('JSONファイルの形式が正しくありません');
+      }
+    };
+    reader.readAsText(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }
 
   function handleInitialBudgetChange(value: string) {
     setInitialBudgetInput(value);
@@ -179,6 +233,56 @@ export default function PortfolioBuilder({
                 現在: {formatYen(monthlyBudget)}／月
               </p>
             </div>
+          </div>
+        )}
+      </div>
+
+      {/* Share / Export / Import panel */}
+      <div className="bg-white rounded-2xl shadow-sm border border-warm-100 overflow-hidden">
+        <button
+          onClick={() => setShareOpen((v) => !v)}
+          className="w-full flex items-center justify-between px-4 py-3 text-sm font-bold text-warm-700 hover:bg-warm-50 transition-colors"
+        >
+          <span>🔗 共有・エクスポート</span>
+          <span className="text-gray-400 text-xs">{shareOpen ? '▲ 閉じる' : '▼ 開く'}</span>
+        </button>
+        {shareOpen && (
+          <div className="px-4 pb-4 border-t border-warm-100 pt-3 space-y-3">
+            <p className="text-xs text-gray-500">ポートフォリオを別デバイスや家族と共有できます。</p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={handleCopyLink}
+                className="flex items-center gap-1.5 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold rounded-lg transition-colors"
+              >
+                {copyDone ? '✅ コピーしました！' : '🔗 共有リンクをコピー'}
+              </button>
+              <button
+                onClick={handleExportJson}
+                className="flex items-center gap-1.5 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold rounded-lg transition-colors"
+              >
+                📥 JSONでダウンロード
+              </button>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-1.5 px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-xs font-bold rounded-lg transition-colors"
+              >
+                📤 JSONを読み込む
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json,application/json"
+                className="hidden"
+                onChange={handleImportJson}
+              />
+            </div>
+            {importError && (
+              <p className="text-xs text-red-600 font-medium">{importError}</p>
+            )}
+            <p className="text-[10px] text-gray-400 leading-relaxed">
+              「共有リンク」: URLをコピーして送ると、相手のブラウザでそのままポートフォリオが開きます。<br />
+              「JSONでダウンロード」: ファイルを保存して別端末で「JSONを読み込む」と復元できます。
+            </p>
           </div>
         )}
       </div>

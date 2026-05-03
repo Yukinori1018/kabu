@@ -33,6 +33,31 @@ function loadPortfolio(): PortfolioItem[] {
   } catch { return []; }
 }
 
+// URL エンコード: [{c:code, l:lots}] → base64url
+export function encodePortfolioToUrl(items: PortfolioItem[]): string {
+  const data = items.map(i => ({ c: i.stock.code, l: i.lots }));
+  const json = JSON.stringify(data);
+  const b64 = btoa(json).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const base = `${window.location.origin}${window.location.pathname}`;
+  return `${base}#p=${b64}`;
+}
+
+// URL デコード: hash から PortfolioItem[] を復元
+function decodePortfolioFromHash(): PortfolioItem[] {
+  try {
+    const match = window.location.hash.match(/[#&]p=([A-Za-z0-9_-]+)/);
+    if (!match) return [];
+    const b64 = match[1].replace(/-/g, '+').replace(/_/g, '/');
+    const pad = b64.length % 4;
+    const padded = pad ? b64 + '='.repeat(4 - pad) : b64;
+    const parsed = JSON.parse(atob(padded)) as { c: string; l: number }[];
+    return parsed.flatMap(({ c, l }) => {
+      const stock = stocksData.find(s => s.code === c);
+      return stock ? [{ stock, lots: Math.max(1, l) }] : [];
+    });
+  } catch { return []; }
+}
+
 function App() {
   const [activeTab, setActiveTab] = useState<TabId>('stocks');
 
@@ -56,6 +81,17 @@ function App() {
 
   // ポートフォリオ（localStorage に永続化）
   const [portfolioItems, setPortfolioItems] = useState<PortfolioItem[]>(loadPortfolio);
+
+  // URLハッシュにポートフォリオが含まれていれば復元
+  useEffect(() => {
+    const fromUrl = decodePortfolioFromHash();
+    if (fromUrl.length > 0) {
+      setPortfolioItems(fromUrl);
+      setActiveTab('myportfolio');
+      // ハッシュをきれいにする
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  }, []);
 
   useEffect(() => {
     try {
@@ -115,6 +151,7 @@ function App() {
             monthlyBudget={monthlyBudget}
             onChangeInitialBudget={setInitialBudget}
             onChangeMonthlyBudget={setMonthlyBudget}
+            onImport={setPortfolioItems}
           />
         );
       case 'stocks':
@@ -168,3 +205,5 @@ function App() {
 }
 
 export default App;
+
+
