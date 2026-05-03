@@ -112,7 +112,7 @@ export default function StockBrowser({
       );
     }
 
-    if (sortKey === 'effectiveYield') {
+    if (sortKey === 'effectiveYield' || sortKey === 'valueScore') {
       data.sort((a, b) => computeEffectiveYield(b) - computeEffectiveYield(a));
     } else {
       data.sort((a, b) => b[sortKey] - a[sortKey]);
