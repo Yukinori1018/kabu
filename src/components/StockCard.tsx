@@ -33,14 +33,37 @@ function YieldBadge({ yield_ }: { yield_: number }) {
   }
 }
 
-function ValueStars({ score }: { score: number }) {
+// お得スコア: 実質利回り（配当+優待÷最低投資額）で自動計算
+// ★★★★★ ≥6% / ★★★★ ≥4% / ★★★ ≥2.5% / ★★ ≥1% / ★ <1%
+function computeScore(stock: StockBenefit): number {
+  const investment = stock.stockPrice * stock.minShares;
+  if (investment === 0) return 1;
+  const ey = (stock.dividendPerShare * stock.minShares + stock.benefitValue) / investment * 100;
+  if (ey >= 6) return 5;
+  if (ey >= 4) return 4;
+  if (ey >= 2.5) return 3;
+  if (ey >= 1) return 2;
+  return 1;
+}
+
+function ValueStars({ stock }: { stock: StockBenefit }) {
+  const score = computeScore(stock);
+  const investment = stock.stockPrice * stock.minShares;
+  const ey = investment > 0
+    ? (stock.dividendPerShare * stock.minShares + stock.benefitValue) / investment * 100
+    : 0;
   return (
-    <div className="flex items-center gap-0.5">
-      {[1, 2, 3, 4, 5].map((i) => (
-        <span key={i} className={`text-base ${i <= score ? 'text-yellow-400' : 'text-gray-200'}`}>
-          ★
-        </span>
-      ))}
+    <div>
+      <div className="flex items-center gap-0.5">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <span key={i} className={`text-base ${i <= score ? 'text-yellow-400' : 'text-gray-200'}`}>
+            ★
+          </span>
+        ))}
+      </div>
+      <p className="text-[10px] text-gray-400 mt-0.5">
+        実質利回り {ey.toFixed(1)}%基準
+      </p>
     </div>
   );
 }
@@ -171,12 +194,18 @@ export default function StockCard({ stock, inPortfolio, onAdd, onRemove }: Stock
         })()}
 
         {/* Value score + description */}
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs text-gray-400 mb-0.5">お得度</p>
-            <ValueStars score={stock.valueScore} />
+        <div className="flex items-start justify-between gap-2">
+          <div className="shrink-0">
+            <p className="text-xs text-gray-400 mb-0.5">
+              お得スコア
+              <span className="ml-1 text-gray-300 text-[10px]">（実質利回り基準）</span>
+            </p>
+            <ValueStars stock={stock} />
+            <p className="text-[10px] text-gray-300 mt-0.5 leading-tight">
+              ★5=6%以上 ★4=4% ★3=2.5% ★2=1%
+            </p>
           </div>
-          <p className="text-xs text-gray-500 text-right max-w-[140px] leading-relaxed">{stock.description}</p>
+          <p className="text-xs text-gray-500 text-right leading-relaxed">{stock.description}</p>
         </div>
       </div>
 

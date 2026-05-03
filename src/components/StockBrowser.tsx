@@ -3,7 +3,7 @@ import type { StockBenefit, StockCategory, StockSource } from '../types/stock';
 import { stocksData } from '../data/stocks';
 import StockCard from './StockCard';
 
-type SortKey = 'dividendYield' | 'benefitValue' | 'stockPrice' | 'requiredInvestment' | 'valueScore';
+type SortKey = 'effectiveYield' | 'dividendYield' | 'benefitValue' | 'stockPrice' | 'requiredInvestment' | 'valueScore';
 
 interface StockBrowserProps {
   onAddToPortfolio: (stock: StockBenefit) => void;
@@ -44,12 +44,19 @@ const investmentRanges = [
 ];
 
 const sortOptions: { key: SortKey; label: string }[] = [
+  { key: 'effectiveYield', label: '✨ 実質利回り順' },
   { key: 'dividendYield', label: '配当利回り順' },
   { key: 'benefitValue', label: '優待価値順' },
   { key: 'stockPrice', label: '株価順（低い）' },
   { key: 'requiredInvestment', label: '必要投資額順' },
-  { key: 'valueScore', label: 'お得度順' },
+  { key: 'valueScore', label: 'お得スコア順' },
 ];
+
+function computeEffectiveYield(s: StockBenefit): number {
+  const investment = s.stockPrice * s.minShares;
+  if (investment === 0) return 0;
+  return (s.dividendPerShare * s.minShares + s.benefitValue) / investment * 100;
+}
 
 export default function StockBrowser({
   onAddToPortfolio,
@@ -61,7 +68,7 @@ export default function StockBrowser({
   const [selectedCategory, setSelectedCategory] = useState<StockCategory | 'すべて'>('すべて');
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
   const [selectedRangeIndex, setSelectedRangeIndex] = useState(0);
-  const [sortKey, setSortKey] = useState<SortKey>('valueScore');
+  const [sortKey, setSortKey] = useState<SortKey>('effectiveYield');
   const [searchText, setSearchText] = useState('');
   const [selectedSource, setSelectedSource] = useState<StockSource | 'all'>('all');
 
@@ -105,7 +112,11 @@ export default function StockBrowser({
       );
     }
 
-    data.sort((a, b) => b[sortKey] - a[sortKey]);
+    if (sortKey === 'effectiveYield') {
+      data.sort((a, b) => computeEffectiveYield(b) - computeEffectiveYield(a));
+    } else {
+      data.sort((a, b) => b[sortKey] - a[sortKey]);
+    }
 
     return data;
   }, [mergedStocks, selectedCategory, selectedMonth, selectedRangeIndex, sortKey, searchText, selectedSource]);
