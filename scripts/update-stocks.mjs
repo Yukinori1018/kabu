@@ -1,7 +1,7 @@
 /**
  * 株価自動更新スクリプト
  * GitHub Actions から毎週月曜に実行される
- * Yahoo Finance Japan から最新株価を取得して public/data/prices.json を更新する
+ * stooq.com → Yahoo Finance の順でフォールバックしながら最新株価を取得する
  */
 
 import { readFileSync, writeFileSync, mkdirSync } from 'fs';
@@ -26,7 +26,30 @@ const STOCK_CODES = [
   '3148','8801',
 ];
 
-async function fetchPrice(code) {
+// stooq.com から取得（日本株は XXXX.jp 形式）
+async function fetchFromStooq(code) {
+  const symbol = `${code}.jp`;
+  const url = `https://stooq.com/q/l/?s=${symbol}&f=sd2t2ohlcv&h&e=csv`;
+  try {
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; StockUpdater/1.0)' },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) return null;
+    const text = await res.text();
+    // CSV形式: Symbol,Date,Time,Open,High,Low,Close,Volume
+    const lines = text.trim().split('\n');
+    if (lines.length < 2) return null;
+    const cols = lines[1].split(',');
+    const close = parseFloat(cols[6]);
+    return close > 0 ? Math.round(close) : null;
+  } catch {
+    return null;
+  }
+}
+
+// Yahoo Finance v8 からフォールバック取得
+async function fetchFromYahoo(code) {
   const symbol = `${code}.T`;
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=1d&interval=1d`;
   try {
@@ -46,6 +69,19 @@ async function fetchPrice(code) {
   }
 }
 
+async function fetchPrice(code) {
+  // stooq を優先、失敗したら Yahoo Finance を試みる
+  const stooq = await fetchFromStooq(code);
+  if (stooq) return { price: stooq, source: 'stooq' };
+
+  await new Promise(r => setTimeout(r, 200));
+
+  const yahoo = await fetchFromYahoo(code);
+  if (yahoo) return { price: yahoo, source: 'yahoo' };
+
+  return null;
+}
+
 async function main() {
   // 既存ファイルを読み込む（フォールバック用）
   let existing = {};
@@ -59,16 +95,20 @@ async function main() {
   const prices = { ...existing };
   let updated = 0;
   let failed = 0;
+  let stooqCount = 0;
+  let yahooCount = 0;
 
   console.log(`${STOCK_CODES.length}銘柄の株価を取得中...`);
 
   for (const code of STOCK_CODES) {
-    const price = await fetchPrice(code);
-    if (price && price > 0) {
+    const result = await fetchPrice(code);
+    if (result) {
       const prev = existing[code];
-      prices[code] = price;
-      if (prev !== price) {
-        console.log(`  ${code}: ${prev ? `${prev}円 → ` : ''}${price}円`);
+      prices[code] = result.price;
+      if (result.source === 'stooq') stooqCount++;
+      else yahooCount++;
+      if (prev !== result.price) {
+        console.log(`  ${code}: ${prev ? `${prev}円 → ` : ''}${result.price}円 [${result.source}]`);
         updated++;
       }
     } else {
@@ -76,13 +116,13 @@ async function main() {
       failed++;
     }
     // レートリミット対策
-    await new Promise(r => setTimeout(r, 150));
+    await new Promise(r => setTimeout(r, 200));
   }
 
   const today = new Date().toISOString().split('T')[0];
   const output = {
     lastUpdated: today,
-    source: 'Yahoo Finance Japan (自動取得)',
+    source: `stooq.com ${stooqCount}件 / Yahoo Finance ${yahooCount}件 (自動取得)`,
     note: '毎週月曜に自動更新。株価は参考値です。投資判断は必ず最新情報でご確認ください。',
     prices,
   };
@@ -91,7 +131,14 @@ async function main() {
   writeFileSync(PRICES_FILE, JSON.stringify(output, null, 2), 'utf8');
 
   console.log(`\n完了: ${updated}銘柄を更新、${failed}銘柄は取得失敗（既存値を維持）`);
+  console.log(`データソース: stooq ${stooqCount}件、Yahoo ${yahooCount}件`);
   console.log(`更新日: ${today}`);
+
+  // 過半数が失敗した場合はエラー終了（GitHub Actions に知らせる）
+  if (failed > STOCK_CODES.length / 2) {
+    console.error('警告: 半数以上の銘柄で取得失敗。APIの変更を確認してください。');
+    process.exit(1);
+  }
 }
 
 main().catch((err) => {

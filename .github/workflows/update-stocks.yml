@@ -51,9 +51,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # 現在のブランチ名を記録
-          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-
           # dist の内容を一時保存
           cp -r dist /tmp/kabu-dist-deploy
 
@@ -65,11 +62,10 @@ jobs:
           git rm -rf . --quiet 2>/dev/null || true
           cp -r /tmp/kabu-dist-deploy/. .
 
-          git add index.html assets/ favicon.svg icons.svg 2>/dev/null || git add -A
+          # data/prices.json を含む全ファイルをステージング
+          git add index.html assets/ favicon.svg icons.svg data/ 2>/dev/null || git add -A
 
           DEPLOY_DATE=$(date +%Y-%m-%d)
           git commit -m "Deploy: 株価自動更新 ${DEPLOY_DATE}" || echo "変更なし"
           git push origin gh-pages --force
 
-          # 元のブランチに戻す
-          git checkout "$CURRENT_BRANCH"
