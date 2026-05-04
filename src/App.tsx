@@ -88,10 +88,19 @@ function App() {
     if (fromUrl.length > 0) {
       setPortfolioItems(fromUrl);
       setActiveTab('myportfolio');
-      // ハッシュをきれいにする
-      window.history.replaceState(null, '', window.location.pathname);
     }
   }, []);
+
+  // ポートフォリオが変わるたびにURLハッシュを最新状態に同期
+  // → アドレスバーのURLを共有するだけで別デバイスに最新状態を渡せる
+  useEffect(() => {
+    if (portfolioItems.length > 0) {
+      const url = encodePortfolioToUrl(portfolioItems);
+      window.history.replaceState(null, '', url);
+    } else {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  }, [portfolioItems]);
 
   useEffect(() => {
     try {

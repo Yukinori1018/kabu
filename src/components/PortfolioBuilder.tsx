@@ -1,7 +1,6 @@
 import { useState, useRef } from 'react';
 import type { PortfolioItem, StockSource } from '../types/stock';
 import AIEvaluation from './AIEvaluation';
-import { encodePortfolioToUrl } from '../App';
 import { stocksData } from '../data/stocks';
 
 interface PortfolioBuilderProps {
@@ -46,7 +45,8 @@ export default function PortfolioBuilder({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function handleCopyLink() {
-    const url = encodePortfolioToUrl(items);
+    // URLハッシュは常に最新ポートフォリオに同期されているのでそのままコピー
+    const url = window.location.href;
     try {
       await navigator.clipboard.writeText(url);
       setCopyDone(true);
@@ -280,7 +280,8 @@ export default function PortfolioBuilder({
               <p className="text-xs text-red-600 font-medium">{importError}</p>
             )}
             <p className="text-[10px] text-gray-400 leading-relaxed">
-              「共有リンク」: URLをコピーして送ると、相手のブラウザでそのままポートフォリオが開きます。<br />
+              💡 <strong>URLは常に最新状態を反映</strong>しています。ブックマーク登録するだけで次回もそのまま続きから使えます。<br />
+              「共有リンクをコピー」: コピーしたURLを家族のスマホや別のPCで開けば、今のポートフォリオがそのまま表示されます。<br />
               「JSONでダウンロード」: ファイルを保存して別端末で「JSONを読み込む」と復元できます。
             </p>
           </div>
