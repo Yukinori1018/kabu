@@ -40,6 +40,8 @@ jobs:
             echo "株価に変動なし。コミットをスキップ。"
           else
             git commit -m "chore: 株価データを自動更新 $(date +%Y-%m-%d)"
+            # remote が先行している場合に備えて rebase してから push
+            git pull --rebase origin "$(git rev-parse --abbrev-ref HEAD)"
             git push
           fi
 
