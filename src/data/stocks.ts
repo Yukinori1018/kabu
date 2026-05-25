@@ -2745,7 +2745,7 @@ export const stocksData: StockBenefit[] = [
     code: '7872',
     name: 'エステールHD',
     nameEn: 'Estelle Holdings',
-    category: '金融',
+    category: '小売',
     rightsMonth: 9,
     stockPrice: 620,
     dividendPerShare: 27,
