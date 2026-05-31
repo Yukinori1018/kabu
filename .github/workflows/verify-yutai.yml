@@ -1,0 +1,80 @@
+name: 優待データ月次再検証
+
+# 毎月1日 10:00 JST (01:00 UTC) に Claude エージェントを起動し、
+# src/data/stocks.ts の優待情報が最新IR・優待サイトと一致するか検証する。
+# 差分があれば修正ブランチを切って PR を自動作成（マージ判断のみ人手）。
+#
+# 必要なリポジトリ Secret:
+#   ANTHROPIC_API_KEY  ... https://console.anthropic.com/ で発行した API キー
+
+on:
+  schedule:
+    - cron: '0 1 1 * *'  # 毎月1日 10:00 JST
+  workflow_dispatch:
+    # Actions タブから手動実行も可能
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  verify-yutai:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: リポジトリをチェックアウト
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Claude エージェントを起動して優待を再検証
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          # 失敗時もジョブは継続させる（PR が作れなかった場合は手動確認）
+          fail_on_error: false
+          # エージェントへの指示
+          prompt: |
+            あなたは日本株の株主優待データベース（src/data/stocks.ts）の保守担当です。
+            登録済みの全銘柄について、2026年時点の最新情報と一致するか検証し、
+            差分があればファイルを修正して Pull Request を作成してください。
+
+            ## 検証手順
+            1. src/data/stocks.ts を読み、各エントリの code・name・benefitContent・
+               benefitValue・rightsMonth・minShares・otherConditions・dividendPerShare を把握する
+            2. 各銘柄について WebSearch ツールで「{コード} {社名} 株主優待 2026」等を検索し、
+               以下を信頼できる情報源（各社IR・minkabu・kabuyutai.com・株主優待ガイド net-ir）で確認:
+               - 優待が現在も実施されているか（廃止・上場廃止に注意）
+               - 100株（または最低単元）保有時の年間優待内容と金額
+               - 権利確定月・最低取得株数・継続保有条件
+               - 1株あたり年間配当（会社予想または直近実績）
+            3. 株式分割・社名変更も確認する
+            4. 効率化のため、Agent ツールで5〜8並列バッチに分けて調査してよい
+
+            ## 修正ルール（重要）
+            - 推測で埋めない。確信が持てない項目は元の値を保持
+            - 上場廃止・非公開化が判明した銘柄は src/data/stocks.ts から削除し、
+              scripts/update-stocks.mjs の STOCK_CODES からも除外
+            - コードが取り違えられている銘柄は正しいコードに変更し、STOCK_CODES も同期
+            - 優待廃止は benefitValue:0、benefitContent:「株主優待なし（YYYY年廃止）」とし
+              otherConditions は削除
+            - 修正後に `npm install && npm run build` が通ることを確認
+
+            ## PR 作成
+            - 差分が無い場合: PR は作らず、ログに「優待データに変更なし」と出力して終了
+            - 差分がある場合:
+              - ブランチ名: claude/verify-yutai-YYYY-MM-DD
+              - PR タイトル: "chore: 優待データの月次再検証（YYYY-MM）"
+              - PR 本文には必ず以下を含める:
+                - 修正した銘柄ごとに「変更前 → 変更後」と参照ソースURL
+                - 上場廃止・優待廃止が判明した銘柄の一覧
+                - 確信度が低く保留した項目（あれば）
+              - base ブランチはこのリポジトリのデフォルトブランチ
+
+            ## やってはいけないこと
+            - 株価（stockPrice）の手動更新（update-stocks.yml が自動で行う領域）
+            - prices.json の編集
+            - ANTHROPIC_API_KEY 等のシークレットの出力
+            - 確信が無いまま benefitValue を変更すること
