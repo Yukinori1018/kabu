@@ -4,6 +4,13 @@ on:
   schedule:
     # 毎週月曜 10:00 JST (01:00 UTC) に自動実行
     - cron: '0 1 * * 1'
+  push:
+    # デフォルトブランチへの push でも再デプロイ（マージ時に反映）
+    branches:
+      - claude/stock-portfolio-beginners-x4zDC
+      - main
+    paths-ignore:
+      - 'public/data/prices.json'
   workflow_dispatch:
     # GitHub の Actions タブから手動実行も可能
 
