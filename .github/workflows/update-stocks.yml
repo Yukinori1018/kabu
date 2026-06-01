@@ -43,9 +43,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           BRANCH="$(git rev-parse --abbrev-ref HEAD)"
-          # コミット前に最新状態を取得（価格取得中に別コミットが積まれても安全）
+          # コミット前に最新状態を取得（価格取得中に別コミットが積まれても安全）。
+          # prices.json の未ステージ変更を autostash で一時退避してから rebase。
           git fetch origin "$BRANCH"
-          git rebase "origin/$BRANCH"
+          git -c rebase.autoStash=true rebase "origin/$BRANCH"
           git add public/data/prices.json
           if git diff --staged --quiet; then
             echo "株価に変動なし。コミットをスキップ。"
